@@ -2,7 +2,7 @@
 /* pngread.c - read a PNG file
  *
  * Last changed in libpng 1.6.17 [March 26, 2015]
- * Copyright (c) 1998-2015 Glenn Randers-Pehrson
+ * Copyright (c) 1998-2002,2004,2006-2015 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
  *
@@ -73,7 +73,6 @@ png_create_read_struct_2,(png_const_charp user_png_ver, png_voidp error_ptr,
        * required.
        */
       png_set_read_fn(png_ptr, NULL, NULL);
-
 #ifdef PNG_INDEX_SUPPORTED
       png_ptr->index = NULL;
 #endif
@@ -617,73 +616,6 @@ png_read_row(png_structrp png_ptr, png_bytep row, png_bytep dsp_row)
 }
 #endif /* SEQUENTIAL_READ */
 
-#ifdef PNG_SEQUENTIAL_READ_SUPPORTED
-/* Read one or more rows of image data.  If the image is interlaced,
- * and png_set_interlace_handling() has been called, the rows need to
- * contain the contents of the rows from the previous pass.  If the
- * image has alpha or transparency, and png_handle_alpha()[*] has been
- * called, the rows contents must be initialized to the contents of the
- * screen.
- *
- * "row" holds the actual image, and pixels are placed in it
- * as they arrive.  If the image is displayed after each pass, it will
- * appear to "sparkle" in.  "display_row" can be used to display a
- * "chunky" progressive image, with finer detail added as it becomes
- * available.  If you do not want this "chunky" display, you may pass
- * NULL for display_row.  If you do not want the sparkle display, and
- * you have not called png_handle_alpha(), you may pass NULL for rows.
- * If you have called png_handle_alpha(), and the image has either an
- * alpha channel or a transparency chunk, you must provide a buffer for
- * rows.  In this case, you do not have to provide a display_row buffer
- * also, but you may.  If the image is not interlaced, or if you have
- * not called png_set_interlace_handling(), the display_row buffer will
- * be ignored, so pass NULL to it.
- *
- * [*] png_handle_alpha() does not exist yet, as of this version of libpng
- */
-
-void PNGAPI
-png_read_rows(png_structrp png_ptr, png_bytepp row,
-    png_bytepp display_row, png_uint_32 num_rows)
-{
-   png_uint_32 i;
-   png_bytepp rp;
-   png_bytepp dp;
-
-   png_debug(1, "in png_read_rows");
-
-   if (png_ptr == NULL)
-      return;
-
-   rp = row;
-   dp = display_row;
-   if (rp != NULL && dp != NULL)
-      for (i = 0; i < num_rows; i++)
-      {
-         png_bytep rptr = *rp++;
-         png_bytep dptr = *dp++;
-
-         png_read_row(png_ptr, rptr, dptr);
-      }
-
-   else if (rp != NULL)
-      for (i = 0; i < num_rows; i++)
-      {
-         png_bytep rptr = *rp;
-         png_read_row(png_ptr, rptr, NULL);
-         rp++;
-      }
-
-   else if (dp != NULL)
-      for (i = 0; i < num_rows; i++)
-      {
-         png_bytep dptr = *dp;
-         png_read_row(png_ptr, NULL, dptr);
-         dp++;
-      }
-}
-#endif /* SEQUENTIAL_READ */
-
 #ifdef PNG_INDEX_SUPPORTED
 #define IDAT_HEADER_SIZE 8
 
@@ -825,6 +757,73 @@ png_build_index(png_structp png_ptr)
    png_free(png_ptr, rp);
 }
 #endif
+
+#ifdef PNG_SEQUENTIAL_READ_SUPPORTED
+/* Read one or more rows of image data.  If the image is interlaced,
+ * and png_set_interlace_handling() has been called, the rows need to
+ * contain the contents of the rows from the previous pass.  If the
+ * image has alpha or transparency, and png_handle_alpha()[*] has been
+ * called, the rows contents must be initialized to the contents of the
+ * screen.
+ *
+ * "row" holds the actual image, and pixels are placed in it
+ * as they arrive.  If the image is displayed after each pass, it will
+ * appear to "sparkle" in.  "display_row" can be used to display a
+ * "chunky" progressive image, with finer detail added as it becomes
+ * available.  If you do not want this "chunky" display, you may pass
+ * NULL for display_row.  If you do not want the sparkle display, and
+ * you have not called png_handle_alpha(), you may pass NULL for rows.
+ * If you have called png_handle_alpha(), and the image has either an
+ * alpha channel or a transparency chunk, you must provide a buffer for
+ * rows.  In this case, you do not have to provide a display_row buffer
+ * also, but you may.  If the image is not interlaced, or if you have
+ * not called png_set_interlace_handling(), the display_row buffer will
+ * be ignored, so pass NULL to it.
+ *
+ * [*] png_handle_alpha() does not exist yet, as of this version of libpng
+ */
+
+void PNGAPI
+png_read_rows(png_structrp png_ptr, png_bytepp row,
+    png_bytepp display_row, png_uint_32 num_rows)
+{
+   png_uint_32 i;
+   png_bytepp rp;
+   png_bytepp dp;
+
+   png_debug(1, "in png_read_rows");
+
+   if (png_ptr == NULL)
+      return;
+
+   rp = row;
+   dp = display_row;
+   if (rp != NULL && dp != NULL)
+      for (i = 0; i < num_rows; i++)
+      {
+         png_bytep rptr = *rp++;
+         png_bytep dptr = *dp++;
+
+         png_read_row(png_ptr, rptr, dptr);
+      }
+
+   else if (rp != NULL)
+      for (i = 0; i < num_rows; i++)
+      {
+         png_bytep rptr = *rp;
+         png_read_row(png_ptr, rptr, NULL);
+         rp++;
+      }
+
+   else if (dp != NULL)
+      for (i = 0; i < num_rows; i++)
+      {
+         png_bytep dptr = *dp;
+         png_read_row(png_ptr, NULL, dptr);
+         dp++;
+      }
+}
+#endif /* SEQUENTIAL_READ */
 
 #ifdef PNG_SEQUENTIAL_READ_SUPPORTED
 /* Read the entire image.  If the image has an alpha channel or a tRNS
